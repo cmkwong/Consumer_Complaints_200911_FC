@@ -3,3 +3,6 @@
 3. 	Inside of each of batches is relative and had relationship, 
 		for example, in batch_1, they are sampling from same domain and codomain
 		however, #1 is sampling different domain and codomain in a batch 
+
+Issue:
+1. only one codomain is trained and it take too long
