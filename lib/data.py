@@ -344,39 +344,11 @@ class Batch_Generator:
 
         return domains
 
-    def create_sg_batches(self, positive_sampling_size, negative_sampling_size, category, noise_dist):
-        """
-        :param category: {'codomain_1':[1,2,3,4,...], 'codomain_2':[5,4,2,7,...], 'codomain_3':[9,1,6,5,...],...}
-        :param positive_sampling_size: int
-        :param negative_sampling_size: int
-        :param noise_dist:      {
-                                    domain_A: [0.2, 0.1, 0.5, 0.2 sum=1],
-                                    domain_B: [0.1, 0.2, 0.6, 0.1 sum=1],
-                                    ...
-                                }
-        :return:
-                    x     = [1,0,2,1,1,2,1,...],                        (domain)
-                    y     = [1,2,3,1,3,1,2,...],                        (codomain)
-                    neg_y = [[2,0,2,3, ...], [1,2,1,6, ...], ...]       (negative codomain)
-        """
-        # create batch_x, batch_y, batch_noise
-        x = []
-        y = []
-        neg_y = []
-        for codomain in category.keys():
-            for domain in category[codomain]:
-                x.extend(self.get_domain(codomain, positive_sampling_size, category))
-                y.extend([codomain] * positive_sampling_size)
-                for _ in range(positive_sampling_size):
-                    neg_y.append(self.get_neg_codomain(domain, negative_sampling_size, noise_dist))
-
-        return x, y, neg_y
-
     def get_batches(self, positive_sampling_size, negative_sampling_size, batch_size, category, noise_dist):
         """
-        :param positive_sampling_size:       int
-        :param negative_sampling_size:       int
-        :param batch_size:              int
+        :param positive_sampling_size:          int
+        :param negative_sampling_size:          int
+        :param batch_size:                      int
         :param category:        {1:[1,2,3,4,...], 2:[5,4,2,7,...], 3:[9,1,6,5,...],...}
         :param noise_dist:      {
                                     domain_A: [0.2, 0.1, 0.5, 0.2 sum=1],
@@ -389,21 +361,15 @@ class Batch_Generator:
         :made neg_y:            [[2,0,2,3, ...], [1,2,1,6, ...], ...]
         :yield: batch_x, batch_y, batch_neg_y
         """
-
-        # generate the x, y, neg_y for training
-        print("Creating whole batches...")
-        x, y, neg_y = self.create_sg_batches(positive_sampling_size, negative_sampling_size, category, noise_dist)
-        print("Successful.")
-
-        # find the last index which can completely divided by batch_size
-        last_index = (len(x) // batch_size) * batch_size
-        x, y, neg_y = x[:last_index], y[:last_index], neg_y[:last_index]
-
-        # yield the batch_set
-        for index in np.arange(0,len(x), batch_size):
-            yield x[index:index+batch_size], y[index:index+batch_size], neg_y[index:index+batch_size]
-
-
+        for codomain in category.keys():
+            for domain in category[codomain]:
+                x, y, neg_y = [], [], []
+                for __ in range(batch_size):
+                    x.extend(self.get_domain(codomain, positive_sampling_size, category))
+                    y.extend([codomain] * positive_sampling_size)
+                    for _ in range(positive_sampling_size):
+                        neg_y.append(self.get_neg_codomain(domain, negative_sampling_size, noise_dist))
+                yield x, y, neg_y
 
 
 

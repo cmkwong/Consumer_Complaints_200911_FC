@@ -1,0 +1,5 @@
+1. 	Converge faster and better than #1
+2. 	generate batch at each step
+3. 	Inside of each of batches is relative and had relationship, 
+		for example, in batch_1, they are sampling from same domain and codomain
+		however, #1 is sampling different domain and codomain in a batch 

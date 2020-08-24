@@ -4,22 +4,24 @@ from torch import optim
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 import os
+import re
 
 # get the now time
 now = datetime.now()
 dt_string = now.strftime("%y%m%d_%H%M%S")
 
 DATA_PATH = "../data/Consumer_Complaints.csv"
-MAIN_PATH = "../docs/1"
+MAIN_PATH = "../docs/2"
 NET_SAVE_PATH = MAIN_PATH + '/checkpoint'
 RUNS_SAVE_PATH = MAIN_PATH + "/runs/" + dt_string
 NET_FILE = "checkpoint-5000000.data"
+LOAD_NET = False
 TRAIN_ON_GPU = True
 BATCH_SIZE = 512
 lr = 0.00001
-CHECKPOINT_STEP = 500000
-PRINT_EVERY = 5000
-VISUALIZE_EVERY = 5000
+CHECKPOINT_STEP = 1000
+PRINT_EVERY = 200
+VISUALIZE_EVERY = 100
 MOVING_AVERAGE_STEP = 100
 
 
@@ -35,6 +37,15 @@ generator_prepare = batch_generator.prepare_generator(domain_col=domain_col, cod
 # define model
 skip_gram_model = models.SkipGram(len(generator_prepare.domain_int2vocab), len(generator_prepare.codomain_int2vocab),
                                   embedding_size=3, train_on_gpu=TRAIN_ON_GPU)
+if LOAD_NET:
+    print("Loading net params...")
+    with open(os.path.join(NET_SAVE_PATH, NET_FILE), "rb") as f:
+        checkpoint = torch.load(f)
+    skip_gram_model.load_state_dict(checkpoint['state_dict'])
+    step_idx = int(re.match('checkpoint-([\d]*)', NET_FILE).group(1))
+    print("Successful.")
+else:
+    step_idx = 0
 
 # optimizer
 optimizer = optim.Adam(skip_gram_model.parameters(), lr=lr)
@@ -45,12 +56,11 @@ criterion = criterions.NegativeSamplingLoss()
 writer = SummaryWriter(log_dir=RUNS_SAVE_PATH, comment="USDJPY_2020")
 
 # training
-step_idx = 0
 epochs = 0
 accumulate_loss = 0
 average_loss = 0
 while True:
-    for x, y, neg_y in batch_generator.get_batches(20, 5, BATCH_SIZE, generator_prepare.category, generator_prepare.noise_dist):
+    for x, y, neg_y in batch_generator.get_batches(10, 5, BATCH_SIZE, generator_prepare.category, generator_prepare.noise_dist):
 
         # input, output, and noise vectors
         input_vectors = skip_gram_model.forward_input(x)
@@ -91,8 +101,12 @@ while True:
                 torch.save(checkpoint, f)
         
         if step_idx % VISUALIZE_EVERY:
+            # scalar plot
             loss_value = loss.item()
             writer.add_scalar("loss", loss_value, step_idx)
+
+            # embedding plot
+            # writer.add_embedding(mat=torch.randn(100, 5), metadata=meta)
         
         step_idx += 1
     epochs += 1
