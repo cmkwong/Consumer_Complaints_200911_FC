@@ -372,10 +372,10 @@ class Batch_Generator:
 
         return x, y, neg_y
 
-    def get_batches(self, sampling_sizes, batch_size, category, noise_dist):
+    def get_batches(self, positive_sampling_size, negative_sampling_size, batch_size, category, noise_dist):
         """
-        :param sampling_sizes[0]:       int     (positive_sampling_size)
-        :param sampling_sizes[1]:       int     (negative_sampling_size)
+        :param positive_sampling_size:       int
+        :param negative_sampling_size:       int
         :param batch_size:              int
         :param category:        {1:[1,2,3,4,...], 2:[5,4,2,7,...], 3:[9,1,6,5,...],...}
         :param noise_dist:      {
@@ -392,7 +392,7 @@ class Batch_Generator:
 
         # generate the x, y, neg_y for training
         print("Creating whole batches...")
-        x, y, neg_y = self.create_sg_batches(sampling_sizes[0], sampling_sizes[1], category, noise_dist)
+        x, y, neg_y = self.create_sg_batches(positive_sampling_size, negative_sampling_size, category, noise_dist)
         print("Successful.")
 
         # find the last index which can completely divided by batch_size

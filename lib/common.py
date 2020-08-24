@@ -2,7 +2,12 @@ import torch
 import numpy as np
 import random
 
-def cosine_similarity(embedding, valid_size=16, valid_window=100, device='cuda'):
+def cosine_similarity(embedding, valid_size=16, valid_window=100, train_on_gpu=True):
+    if train_on_gpu:
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
     embed_vectors = embedding.weight
 
     # magnitude of embedding vectors, |b|
