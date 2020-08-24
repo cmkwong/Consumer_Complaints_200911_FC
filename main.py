@@ -14,15 +14,15 @@ DATA_PATH = "../data/Consumer_Complaints.csv"
 MAIN_PATH = "../docs/2"
 NET_SAVE_PATH = MAIN_PATH + '/checkpoint'
 RUNS_SAVE_PATH = MAIN_PATH + "/runs/" + dt_string
-NET_FILE = "checkpoint-5000000.data"
-LOAD_NET = False
+NET_FILE = "checkpoint-144000.data"
+LOAD_NET = True
 TRAIN_ON_GPU = True
 BATCH_SIZE = 512
 lr = 0.00001
-CHECKPOINT_STEP = 1000
-PRINT_EVERY = 200
+CHECKPOINT_STEP = 5000
+PRINT_EVERY = 500
 VISUALIZE_EVERY = 100
-MOVING_AVERAGE_STEP = 100
+MOVING_AVERAGE_STEP = 500
 
 
 # read file
@@ -106,7 +106,7 @@ while True:
             writer.add_scalar("loss", loss_value, step_idx)
 
             # embedding plot
-            # writer.add_embedding(mat=torch.randn(100, 5), metadata=meta)
+            writer.add_embedding(mat=skip_gram_model.in_embed.weight, metadata=list(generator_prepare.domain_vocab2int.keys()), global_step=step_idx)
         
         step_idx += 1
     epochs += 1
