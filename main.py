@@ -11,18 +11,19 @@ now = datetime.now()
 dt_string = now.strftime("%y%m%d_%H%M%S")
 
 DATA_PATH = "../data/Consumer_Complaints.csv"
-MAIN_PATH = "../docs/2"
+MAIN_PATH = "../docs/3"
 NET_SAVE_PATH = MAIN_PATH + '/checkpoint'
 RUNS_SAVE_PATH = MAIN_PATH + "/runs/" + dt_string
-NET_FILE = "checkpoint-144000.data"
+NET_FILE = "checkpoint-10000.data"
 LOAD_NET = True
 TRAIN_ON_GPU = True
 BATCH_SIZE = 512
-lr = 0.00001
-CHECKPOINT_STEP = 5000
-PRINT_EVERY = 500
-VISUALIZE_EVERY = 100
-MOVING_AVERAGE_STEP = 500
+lr = 0.0001
+CHECKPOINT_STEP = 2000
+PRINT_EVERY = 100
+SCALAR_VISUALIZE_EVERY = 100
+EMBEDDING_VISUALIZE_EVERY = 5000
+MOVING_AVERAGE_STEP = 100
 
 
 # read file
@@ -56,11 +57,15 @@ criterion = criterions.NegativeSamplingLoss()
 writer = SummaryWriter(log_dir=RUNS_SAVE_PATH, comment="USDJPY_2020")
 
 # training
+sg_train_set = None
 epochs = 0
 accumulate_loss = 0
 average_loss = 0
 while True:
-    for x, y, neg_y in batch_generator.get_batches(10, 5, BATCH_SIZE, generator_prepare.category, generator_prepare.noise_dist):
+    if epochs % 5 == 0:
+        sg_train_set = batch_generator.create_sg_batches(40, generator_prepare.category, generator_prepare.noise_dist)
+
+    for x, y, neg_y in batch_generator.get_batches(BATCH_SIZE, sg_train_set):
 
         # input, output, and noise vectors
         input_vectors = skip_gram_model.forward_input(x)
@@ -100,13 +105,14 @@ while True:
             with open(os.path.join(NET_SAVE_PATH, "checkpoint-%d.data" % step_idx), "wb") as f:
                 torch.save(checkpoint, f)
         
-        if step_idx % VISUALIZE_EVERY:
+        if step_idx % SCALAR_VISUALIZE_EVERY == 0:
             # scalar plot
             loss_value = loss.item()
             writer.add_scalar("loss", loss_value, step_idx)
 
+        if step_idx % EMBEDDING_VISUALIZE_EVERY == 0:
             # embedding plot
-            writer.add_embedding(mat=skip_gram_model.in_embed.weight, metadata=list(generator_prepare.domain_vocab2int.keys()), global_step=step_idx)
-        
+            writer.add_embedding(mat=skip_gram_model.in_embed.weight,
+                                 metadata=list(generator_prepare.domain_vocab2int.keys()), global_step=step_idx)
         step_idx += 1
     epochs += 1

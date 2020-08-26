@@ -321,6 +321,7 @@ class Batch_Generator:
                                     domain_B: [0.1, 0.2, 0.6, 0.1 sum=1],
                                     ...
                                 }
+                                (eg: domain = Company Name)
         :return: neg_codomain = [int * sampling_size]
         """
         neg_codomains = []
@@ -330,23 +331,51 @@ class Batch_Generator:
                 neg_codomains.extend([neg_codomain]*times)
         return neg_codomains
 
-    def get_domain(self, codomain, sampling_size, category):
+    def get_domain(self, codomain, category):
         """
         :param codomain: int
-        :param sampling_size: int
-        :param: category = {'codomain_1': [1,3,2], 'codomain_2': [3,2,4,5,7], 'codomain_3': [1,2,5,7]...}
-        :return: domains = [int * sampling_size]
+        :param: category = {'codomain_1': [1,3,2,...], 'codomain_2': [3,2,4,5,7,...], 'codomain_3': [1,2,5,7,...]...}
+        :return: domains = [int]
         """
-        domains = []
-        domain_pool = category[codomain]
-        # random.sample() with replacement to including repetition
-        domains.extend(random.choices(domain_pool, k=sampling_size))
+        return category[codomain]
 
-        return domains
-
-    def get_batches(self, positive_sampling_size, negative_sampling_size, batch_size, category, noise_dist):
+    def create_sg_batches(self, negative_sampling_size, category, noise_dist):
         """
-        :param positive_sampling_size:          int
+        :param category: {'codomain_1':[1,2,3,4,...], 'codomain_2':[5,4,2,7,...], 'codomain_3':[9,1,6,5,...],...}
+        :param negative_sampling_size: int
+        :param noise_dist:      {
+                                    domain_A: [0.2, 0.1, 0.5, 0.2 sum=1],
+                                    domain_B: [0.1, 0.2, 0.6, 0.1 sum=1],
+                                    ...
+                                }
+        :return:
+                    x     = [1,0,2,1,1,2,1,...],                        (domain)
+                    y     = [1,2,3,1,3,1,2,...],                        (codomain)
+                    neg_y = [[2,0,2,3, ...], [1,2,1,6, ...], ...]       (negative codomain)
+        """
+        print("Creating whole batches...")
+        sg_train_set = collections.namedtuple("sg_train_set", field_names=["train_x","train_y","train_neg_y","shuffle_indexs"])
+
+        # create batch_x, batch_y, batch_noise
+        sg_train_set.train_x = []
+        sg_train_set.train_y = []
+        sg_train_set.train_neg_y = []
+        for codomain in category.keys():
+            domains = self.get_domain(codomain, category)
+            sg_train_set.train_x.extend(domains)
+            sg_train_set.train_y.extend([codomain] * len(domains))
+            for domain in domains:
+                sg_train_set.train_neg_y.append(self.get_neg_codomain(domain, negative_sampling_size, noise_dist))
+
+        # shuffle the training set
+        sg_train_set.shuffle_indexs = list(range(len(sg_train_set.train_x)))
+        random.shuffle(sg_train_set.shuffle_indexs)
+        print("Successful.")
+
+        return sg_train_set
+
+    def get_batches(self, batch_size, sg_train_set):
+        """
         :param negative_sampling_size:          int
         :param batch_size:                      int
         :param category:        {1:[1,2,3,4,...], 2:[5,4,2,7,...], 3:[9,1,6,5,...],...}
@@ -361,16 +390,20 @@ class Batch_Generator:
         :made neg_y:            [[2,0,2,3, ...], [1,2,1,6, ...], ...]
         :yield: batch_x, batch_y, batch_neg_y
         """
-        for codomain in category.keys():
-            for domain in category[codomain]:
-                x, y, neg_y = [], [], []
-                for __ in range(batch_size):
-                    x.extend(self.get_domain(codomain, positive_sampling_size, category))
-                    y.extend([codomain] * positive_sampling_size)
-                    for _ in range(positive_sampling_size):
-                        neg_y.append(self.get_neg_codomain(domain, negative_sampling_size, noise_dist))
-                yield x, y, neg_y
 
+        # find the last index which can completely divided by batch_size
+        num_batches = len(sg_train_set.shuffle_indexs) // batch_size
+        shuffle_indexs = sg_train_set.shuffle_indexs[:num_batches*batch_size]
+
+        train_x, train_y, train_neg_y = [], [], []
+        # yield the batch_set
+        for c, index in enumerate(shuffle_indexs):
+            train_x.append(sg_train_set.train_x[index])
+            train_y.append(sg_train_set.train_y[index])
+            train_neg_y.append(sg_train_set.train_neg_y[index])
+            if (c+1) % batch_size == 0:
+                yield train_x, train_y, train_neg_y
+                train_x, train_y, train_neg_y = [], [], []
 
 
 
