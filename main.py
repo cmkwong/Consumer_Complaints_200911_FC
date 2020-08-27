@@ -11,19 +11,19 @@ now = datetime.now()
 dt_string = now.strftime("%y%m%d_%H%M%S")
 
 DATA_PATH = "../data/Consumer_Complaints.csv"
-MAIN_PATH = "../docs/3"
+MAIN_PATH = "../docs/4"
 NET_SAVE_PATH = MAIN_PATH + '/checkpoint'
 RUNS_SAVE_PATH = MAIN_PATH + "/runs/" + dt_string
 NET_FILE = "checkpoint-10000.data"
-LOAD_NET = True
+LOAD_NET = False
 TRAIN_ON_GPU = True
 BATCH_SIZE = 512
 lr = 0.0001
-CHECKPOINT_STEP = 2000
-PRINT_EVERY = 100
-SCALAR_VISUALIZE_EVERY = 100
-EMBEDDING_VISUALIZE_EVERY = 5000
-MOVING_AVERAGE_STEP = 100
+CHECKPOINT_STEP = 50000
+PRINT_EVERY = 5000
+SCALAR_VISUALIZE_EVERY = 500
+EMBEDDING_VISUALIZE_EVERY = 50000
+MOVING_AVERAGE_STEP = 1000
 
 
 # read file
