@@ -374,7 +374,7 @@ class Batch_Generator:
 
         return sg_train_set
 
-    def get_batches(self, batch_size, sg_train_set):
+    def get_sg_batches(self, batch_size, sg_train_set):
         """
         :param negative_sampling_size:          int
         :param batch_size:                      int
@@ -405,7 +405,11 @@ class Batch_Generator:
                 yield train_x, train_y, train_neg_y
                 train_x, train_y, train_neg_y = [], [], []
 
+    def create_fc_batches(self, negative_sampling_size, category, noise_dist):
+        pass
 
+    def get_fc_batches(self, batch_size, sg_train_set):
+        pass
 
 
 

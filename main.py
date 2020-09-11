@@ -11,7 +11,7 @@ now = datetime.now()
 dt_string = now.strftime("%y%m%d_%H%M%S")
 
 DATA_PATH = "../data/Consumer_Complaints.csv"
-MAIN_PATH = "../docs/4"
+MAIN_PATH = "../docs/1"
 NET_SAVE_PATH = MAIN_PATH + '/checkpoint'
 RUNS_SAVE_PATH = MAIN_PATH + "/runs/" + dt_string
 NET_FILE = "checkpoint-10000.data"
@@ -65,7 +65,7 @@ while True:
     if epochs % 5 == 0:
         sg_train_set = batch_generator.create_sg_batches(40, generator_prepare.category, generator_prepare.noise_dist)
 
-    for x, y, neg_y in batch_generator.get_batches(BATCH_SIZE, sg_train_set):
+    for x, y, neg_y in batch_generator.get_sg_batches(BATCH_SIZE, sg_train_set):
 
         # input, output, and noise vectors
         input_vectors = skip_gram_model.forward_input(x)
