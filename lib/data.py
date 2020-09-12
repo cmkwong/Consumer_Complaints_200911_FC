@@ -214,76 +214,18 @@ class Batch_Generator:
             category[codomain_key] = list(domain_col[mask])
         return category
 
-    def calculate_codomain_neg_pval(self, category, codomain_int2vocab):
-        """
-        :param category: =          {
-                                    codomain_1: [domain_A, domain_C, ...],
-                                    codomain_2: [domain_D, domain_A, ...],
-                                    ...
-                                    }
-        :param codomain_int2vocab:  {1: 'a', 2:'b', ...}
-        :return: codomain_pval =    {
-                                    domain_A: {codomain_1: 0.25, codomain_2: 0.4, ...},
-                                    domain_B: {codomain_1: 0.36, codomain_2: 0.1, ...},
-                                    ...
-                                    }
-       NOTE: the order of key in self.codomain_int2vocab is reversed order, so let make the dist in order consistently
-        """
-
-        col_data = []
-        for value in category.values():
-            col_data.extend(value)
-        domains = list(Counter(col_data).keys())
-        codomains = list(codomain_int2vocab.keys()) # reversed order, make it consistent
-
-        codomain_pval = {}
-        for domain in domains:
-            codomain_pval[domain] = {}
-            for codomain in codomains:
-                pval = Counter(category[codomain])[domain] / len(category[codomain])
-                codomain_pval[domain][codomain] =  1 - pval
-
-        return codomain_pval
-
-    def calculate_noise_dist(self, p_vals):
-        """
-        :param p_vals:  {
-                        domain_A: {codomain_1: 0.25, codomain_2: 0.4, ...},
-                        domain_B: {codomain_1: 0.36, codomain_2: 0.1, ...},
-                        ...
-                        }
-        :return: noise_dist =   {
-                                domain_A: [0.2, 0.1, 0.5, 0.2],
-                                domain_B: [0.1, 0.2, 0.6, 0.1],
-                                ...
-                                }
-        """
-        noise_dist = {}
-        for domain in p_vals.keys():
-            total = sum([v**(3/4) for v in p_vals[domain].values()])
-            dist = []
-            for p in p_vals[domain].values():
-                dist.append(p/total)
-            noise_dist[domain] = dist
-        return noise_dist
-
     def prepare_generator(self, domain_col, codomain_col):
         """
         :param domain_col:              ['cat_1', 'cat_3', 'cat_1', ...]
         :param codomain_col:            ['cat_B', 'cat_C', 'cat_B', ...]
         :made: domain_int2vocab, domain_vocab2int
         :made: codomain_int2vocab, codomain_vocab2int
-        :made: category =          {1: [1,3,2], 2: [3,2,4,5,7], 3: [1,2,5,7]...}
-        :made: noise_dist =        {
-                                            domain_A: [0.2, 0.1, 0.5, 0.2],
-                                            domain_B: [0.1, 0.2, 0.6, 0.1],
-                                            ...
-                                        }
+        :made: category =          {codomain_1: [1,3,2], codomain_2: [3,2,4,5,7], codomain_3: [1,2,5,7]...}
         return namedtuple = Preparation
 
         """
         Preparation = collections.namedtuple("Preparation",field_names=[
-            "domain_int2vocab", "domain_vocab2int", "codomain_int2vocab", "codomain_vocab2int", "category", "noise_dist"])
+            "domain_int2vocab", "domain_vocab2int", "codomain_int2vocab", "codomain_vocab2int", "category"])
 
         # get the domain_col token_count
         print("Get info from domain data ...")
@@ -304,32 +246,7 @@ class Batch_Generator:
         Preparation.category = self.systematize_category(domain_index, codomain_index)
         print("Successful.")
 
-        # calculate the noise distribution
-        print("calculate the noise distribution ...")
-        codomain_pval = self.calculate_codomain_neg_pval(Preparation.category, Preparation.codomain_int2vocab)
-        Preparation.noise_dist = self.calculate_noise_dist(codomain_pval)
-        print("Successful.")
-
         return Preparation
-
-    def get_neg_codomain(self, domain, sampling_size, noise_dist):
-        """
-        :param domain: int
-        :param sampling_size: int
-        :param noise_dist:      {
-                                    domain_A: [0.2, 0.1, 0.5, 0.2 sum=1],
-                                    domain_B: [0.1, 0.2, 0.6, 0.1 sum=1],
-                                    ...
-                                }
-                                (eg: domain = Company Name)
-        :return: neg_codomain = [int * sampling_size]
-        """
-        neg_codomains = []
-        results = list(np.random.multinomial(sampling_size, noise_dist[domain], size=1).reshape(-1,))
-        for neg_codomain, times in enumerate(results):
-            if times > 0:
-                neg_codomains.extend([neg_codomain]*times)
-        return neg_codomains
 
     def get_domain(self, codomain, category):
         """
@@ -339,77 +256,58 @@ class Batch_Generator:
         """
         return category[codomain]
 
-    def create_sg_batches(self, negative_sampling_size, category, noise_dist):
+    def create_fc_batches(self, category):
         """
         :param category: {'codomain_1':[1,2,3,4,...], 'codomain_2':[5,4,2,7,...], 'codomain_3':[9,1,6,5,...],...}
-        :param negative_sampling_size: int
-        :param noise_dist:      {
-                                    domain_A: [0.2, 0.1, 0.5, 0.2 sum=1],
-                                    domain_B: [0.1, 0.2, 0.6, 0.1 sum=1],
-                                    ...
-                                }
         :return:
                     x     = [1,0,2,1,1,2,1,...],                        (domain)
                     y     = [1,2,3,1,3,1,2,...],                        (codomain)
-                    neg_y = [[2,0,2,3, ...], [1,2,1,6, ...], ...]       (negative codomain)
+                    idx   = [98,58,12,18,51,...]
         """
         print("Creating whole batches...")
-        sg_train_set = collections.namedtuple("sg_train_set", field_names=["train_x","train_y","train_neg_y","shuffle_indexs"])
+        fc_train_set = collections.namedtuple("fc_train_set", field_names=["train_x","train_y","shuffle_indexs"])
 
         # create batch_x, batch_y, batch_noise
-        sg_train_set.train_x = []
-        sg_train_set.train_y = []
-        sg_train_set.train_neg_y = []
+        fc_train_set.train_x = []
+        fc_train_set.train_y = []
+
         for codomain in category.keys():
             domains = self.get_domain(codomain, category)
-            sg_train_set.train_x.extend(domains)
-            sg_train_set.train_y.extend([codomain] * len(domains))
-            for domain in domains:
-                sg_train_set.train_neg_y.append(self.get_neg_codomain(domain, negative_sampling_size, noise_dist))
+            fc_train_set.train_x.extend(domains)
+            fc_train_set.train_y.extend([codomain] * len(domains))
 
         # shuffle the training set
-        sg_train_set.shuffle_indexs = list(range(len(sg_train_set.train_x)))
-        random.shuffle(sg_train_set.shuffle_indexs)
+        fc_train_set.shuffle_indexs = list(range(len(fc_train_set.train_x)))
+        random.shuffle(fc_train_set.shuffle_indexs)
         print("Successful.")
 
-        return sg_train_set
+        return fc_train_set
 
-    def get_sg_batches(self, batch_size, sg_train_set):
+    def get_fc_batches(self, batch_size, fc_train_set):
         """
-        :param negative_sampling_size:          int
         :param batch_size:                      int
-        :param category:        {1:[1,2,3,4,...], 2:[5,4,2,7,...], 3:[9,1,6,5,...],...}
-        :param noise_dist:      {
-                                    domain_A: [0.2, 0.1, 0.5, 0.2 sum=1],
-                                    domain_B: [0.1, 0.2, 0.6, 0.1 sum=1],
-                                    ...
-                                }
+        :param fc_train_set:
+                                x     = [1,0,2,1,1,2,1,...],                        (domain)
+                                y     = [1,2,3,1,3,1,2,...],                        (codomain)
+                                idx   = [98,58,12,18,51,...]
 
         :made x:                [1,0,2,1,1,2,1,...]
         :made y:                [1,2,3,1,3,1,2,...]
-        :made neg_y:            [[2,0,2,3, ...], [1,2,1,6, ...], ...]
-        :yield: batch_x, batch_y, batch_neg_y
+        :yield: batch_x, batch_y
         """
 
         # find the last index which can completely divided by batch_size
-        num_batches = len(sg_train_set.shuffle_indexs) // batch_size
-        shuffle_indexs = sg_train_set.shuffle_indexs[:num_batches*batch_size]
+        num_batches = len(fc_train_set.shuffle_indexs) // batch_size
+        shuffle_indexs = fc_train_set.shuffle_indexs[:num_batches*batch_size]
 
-        train_x, train_y, train_neg_y = [], [], []
+        train_x, train_y = [], []
         # yield the batch_set
         for c, index in enumerate(shuffle_indexs):
-            train_x.append(sg_train_set.train_x[index])
-            train_y.append(sg_train_set.train_y[index])
-            train_neg_y.append(sg_train_set.train_neg_y[index])
+            train_x.append(fc_train_set.train_x[index])
+            train_y.append(fc_train_set.train_y[index])
             if (c+1) % batch_size == 0:
-                yield train_x, train_y, train_neg_y
-                train_x, train_y, train_neg_y = [], [], []
-
-    def create_fc_batches(self, negative_sampling_size, category, noise_dist):
-        pass
-
-    def get_fc_batches(self, batch_size, sg_train_set):
-        pass
+                yield train_x, train_y
+                train_x, train_y = [], []
 
 
 

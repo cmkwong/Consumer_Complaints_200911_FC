@@ -26,3 +26,21 @@ class NegativeSamplingLoss(nn.Module):
         # negate and sum correct and noisy log-sigmoid losses
         # return average batch loss
         return -(out_loss + noise_loss).mean()
+
+class Cross_Entropy:
+    def __init__(self, train_on_gpu):
+        if train_on_gpu:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+        self.loss_cal = nn.CrossEntropyLoss()
+
+    def cal_loss(self,output,y):
+        """
+        :param output: torch: shape=(batch_size, C)
+        :param y: list: [1,4,5,1,4...]
+        :return: torch int
+        """
+        y = torch.tensor(y, dtype=torch.long).to(self.device)
+        loss = self.loss_cal(output,y)
+        return loss
