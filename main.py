@@ -12,14 +12,14 @@ now = datetime.now()
 dt_string = now.strftime("%y%m%d_%H%M%S")
 
 DATA_PATH = "../data/Consumer_Complaints.csv"
-MAIN_PATH = "../docs/2"
+MAIN_PATH = "../docs/3"
 NET_SAVE_PATH = MAIN_PATH + '/checkpoint'
 RUNS_SAVE_PATH = MAIN_PATH + "/runs/" + dt_string
 NET_FILE = "checkpoint-3100000.data"
 LOAD_NET = False
 TRAIN_ON_GPU = True
 BATCH_SIZE = 512
-lr = 0.01
+lr = 0.001
 CHECKPOINT_STEP = 100000
 PRINT_EVERY = 50000
 SCALAR_VISUALIZE_EVERY = 1000
@@ -69,13 +69,17 @@ while True:
 
     for x, y in batch_generator.get_fc_batches(BATCH_SIZE, fc_train_set):
 
+        # prepare before training
+        optimizer.zero_grad()
+        fc_model.train()
+        fc_model.zero_grad()
+
         # input, output, and noise vectors
         outputs = fc_model.forward(x)
 
         # loss
         loss = criterion.cal_loss(outputs, y)
 
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -84,6 +88,9 @@ while True:
         if step_idx % MOVING_AVERAGE_STEP == 0:
             average_loss = accumulate_loss / MOVING_AVERAGE_STEP
             accumulate_loss = 0
+
+        # set the fc_model evaluation mode
+        fc_model.eval()
 
         # loss stats
         if step_idx % PRINT_EVERY == 0:

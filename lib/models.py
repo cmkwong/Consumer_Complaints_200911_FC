@@ -23,7 +23,7 @@ class FC_Embed(nn.Module):
         ).to(self.device)
 
         # init the weights
-        self.embed.weight.data.uniform_(-1,1)
+        # self.embed.weight.data.uniform_(-1,1)
 
     def forward(self, domains):
         """
